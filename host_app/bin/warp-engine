@@ -1,0 +1,15 @@
+#!/bin/sh
+# The local engine's own commands, inside the container:
+#   bin/warp-engine token          the token the developer tools sign in with
+#   bin/warp-engine token --reset  a new one (the old one stops working)
+#   bin/warp-engine admin          the admin web UI sign-in (when WARP_ADMIN=1)
+set -e
+cd "$(dirname "$0")/.."
+case "$1" in
+  token)
+    if [ "$2" = "--reset" ]; then RESET=1 bin/rails local:token 2>/dev/null; else bin/rails local:token 2>/dev/null; fi ;;
+  admin)
+    cat "${WARP_DATA:-/data}/admin.json" 2>/dev/null || { echo "the admin web UI is off (WARP_ADMIN=1 turns it on)" >&2; exit 1; } ;;
+  *)
+    echo "usage: bin/warp-engine token [--reset] | admin" >&2; exit 2 ;;
+esac

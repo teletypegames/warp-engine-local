@@ -1,0 +1,19 @@
+# Develops the local engine against an engine checkout instead of the released gem:
+#   WARP_ENGINE_SOURCE=../warp_engine docker compose -f compose.dev.yml up --build
+# The data lands in ./tmp/data; WARP_ADMIN=1 turns the admin web UI on.
+services:
+  engine:
+    build:
+      context: .
+      additional_contexts:
+        engine: ${WARP_ENGINE_SOURCE:?set WARP_ENGINE_SOURCE to an engine checkout}
+      args:
+        WARP_ENGINE_PATH: /warp_engine
+    ports:
+      - "127.0.0.1:${PORT:-7470}:${PORT:-7470}"
+    environment:
+      PORT: ${PORT:-7470}
+      WARP_ADMIN: ${WARP_ADMIN:-0}
+      WARP_SYNC_TARGET: ${WARP_SYNC_TARGET:-https://orbit.teletypegames.org}
+    volumes:
+      - ./tmp/data:/data

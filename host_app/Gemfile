@@ -1,0 +1,22 @@
+source "https://rubygems.org"
+
+gem "rails", "~> 8.1"
+gem "puma"
+gem "sqlite3", ">= 2.1"
+gem "solid_queue", "~> 1.2"
+
+if ENV["WARP_ENGINE_PATH"].to_s.empty?
+  source "https://git.teletypegames.org/api/packages/engines/rubygems" do
+    gem "warp_engine", ENV.fetch("WARP_ENGINE_VERSION", "~> 5.2")
+  end
+else
+  gem "warp_engine", path: ENV["WARP_ENGINE_PATH"]
+end
+
+# The admin web UI, loaded only when WARP_ADMIN=1 (config/application.rb).
+group :admin do
+  gem "activeadmin", "~> 3.5"
+  gem "devise"
+  gem "sprockets-rails"
+  gem "sassc-rails"
+end

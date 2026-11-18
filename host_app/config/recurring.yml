@@ -1,0 +1,10 @@
+production:
+  sync_event_prune:
+    class: WarpEngine::SyncEventPruneJob
+    schedule: every day at 4:10am
+  dev_release_prune:
+    class: WarpEngine::DevReleasePruneJob
+    schedule: every day at 4:00am
+  clear_finished_jobs:
+    command: "SolidQueue::Job.clear_finished_in_batches(sleep_between_batches: 0.3)"
+    schedule: every day at 5am

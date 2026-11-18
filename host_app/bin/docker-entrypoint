@@ -1,0 +1,8 @@
+#!/bin/sh
+set -e
+mkdir -p "${WARP_DATA:-/data}/softwares" "${WARP_DATA:-/data}/images" tmp/pids
+bin/rails db:prepare
+bin/rails local:bootstrap
+bin/rails warp_engine:runtimes:install >/dev/null 2>&1 || echo "warp_engine: the web runtimes were not installed; /play waits for them"
+rm -f tmp/pids/server.pid
+exec "$@"

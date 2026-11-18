@@ -1,0 +1,5 @@
+.git
+host_app/log
+host_app/tmp
+host_app/public/assets
+host_app/Gemfile.lock

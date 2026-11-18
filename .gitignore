@@ -1,0 +1,6 @@
+host_app/Gemfile.lock
+host_app/log/
+host_app/tmp/
+host_app/public/assets/
+.env
+host_app/db/schema.rb
