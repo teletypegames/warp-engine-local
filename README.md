@@ -97,6 +97,7 @@ checks the installers (shellcheck, the two versions agree, the tag matches).
 
 | Local | Engine | |
 | --- | --- | --- |
+| 1.1.0 | `warp_engine ~> 5.3` | per-peer channels, pairing with a remote engine, images go with the releases |
 | 1.0.1 | `warp_engine ~> 5.2` | the image is pushed by hand, `bin/push-image` |
 | 1.0.0 | `warp_engine ~> 5.2` | first release |
 
