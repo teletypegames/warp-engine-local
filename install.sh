@@ -1,14 +1,18 @@
 #!/bin/sh
 # WarpEngine Local installer: one container on your machine, one port, your
-# releases synced to a catalog of your choice.
+# releases synced on to another WarpEngine instance if you name one, and a git
+# server and CI beside it if you want them.
 #
 #   curl -fsSL https://git.teletypegames.org/engines/warp-engine-local/raw/branch/master/install.sh | sh
 #   curl -fsSL …/install.sh | sh -s -- --port 7471 --admin on
 #
 # Options:
 #   --port N               the port on 127.0.0.1 (default 7470)
-#   --sync-target URL      where your releases go (default https://orbit.teletypegames.org; "none" for nowhere)
+#   --sync-target URL      another WarpEngine instance your releases go to, e.g.
+#                          https://games.example.org (default none)
 #   --admin on|off         the admin web UI at /admin (default off)
+#   --ci on|off            a git server (Gitea) and a CI (Woodpecker) beside the
+#                          engine, on 127.0.0.1:<port + 1> (default off)
 #   --builders LIST        pull builder images now: none, all, or names (c64 love …)
 #   --version V            the engine image version (default: this installer's)
 #   --image REF            a whole image reference instead (for testing a build of your own)
@@ -20,18 +24,20 @@
 # Without a terminal (CI, a tool running it) it asks nothing either.
 set -eu
 
-INSTALLER_VERSION="1.2.0"
+INSTALLER_VERSION="1.3.0"
 REGISTRY="git.teletypegames.org/build/warp-engine-local"
 CONTAINER="warp-engine-local"
 NETWORK="warp-local"
 SOCKET="/var/run/docker.sock"
 LABEL="org.teletypegames.warp-engine.local=1"
 DEFAULT_PORT=7470
-DEFAULT_SYNC_TARGET="https://orbit.teletypegames.org"
+DEFAULT_SYNC_TARGET="none"
+EXAMPLE_SYNC_TARGET="https://games.example.org"
 
 port=""
 sync_target=""
 admin=""
+ci=""
 builders=""
 version=""
 image=""
@@ -47,6 +53,7 @@ while [ $# -gt 0 ]; do
     --port) port="${2:?--port needs a number}"; shift 2 ;;
     --sync-target) sync_target="${2:?--sync-target needs an address or none}"; shift 2 ;;
     --admin) admin="${2:?--admin needs on or off}"; shift 2 ;;
+    --ci) ci="${2:?--ci needs on or off}"; shift 2 ;;
     --builders) builders="${2:?--builders needs none, all or a list}"; shift 2 ;;
     --version) version="${2:?--version needs a version}"; shift 2 ;;
     --image) image="${2:?--image needs an image reference}"; shift 2 ;;
@@ -55,7 +62,7 @@ while [ $# -gt 0 ]; do
     --status) action="status"; shift ;;
     --uninstall) action="uninstall"; shift ;;
     --purge) purge=1; shift ;;
-    -h|--help) sed -n '2,24p' "$0" 2>/dev/null || true; exit 0 ;;
+    -h|--help) sed -n '2,/^set -eu/p' "$0" 2>/dev/null | sed '$d' || true; exit 0 ;;
     *) die_usage "unknown option: $1 (--help lists them)" ;;
   esac
 done
@@ -227,6 +234,7 @@ write_config() {
   "port": $port,
   "syncTarget": "$sync_target",
   "admin": $( [ "$admin" = on ] && echo true || echo false ),
+  "ci": $( [ "$ci" = on ] && echo true || echo false ),
   "image": "$image",
   "installer": "$INSTALLER_VERSION"
 }
@@ -252,6 +260,7 @@ if [ "$action" = "status" ]; then
   box_line "port ............. $(saved port)"
   box_line "sync target ...... $(saved syncTarget)"
   box_line "admin ............ $(saved admin)"
+  box_line "local CI ......... $(saved ci)"
   box_line "data ............. $(home_path "$data_dir")"
   box_bottom
   exit 0
@@ -319,9 +328,10 @@ if [ -z "$sync_target" ]; then
   default_target=${previous:-$DEFAULT_SYNC_TARGET}
   if [ "$interactive" = 1 ]; then
     box_top "SYNC TARGET"
-    box_line "Where should your releases go?"
+    box_line "Send your releases on to another WarpEngine instance?"
+    box_line "Type its address, e.g. $EXAMPLE_SYNC_TARGET"
     box_line "[Enter] $default_target" "${BYEL}[Enter]${R} ${BWHT}${default_target}${R}"
-    box_line "or type an address, [-] none" "or type an address, ${BYEL}[-]${R} none"
+    box_line "[-] none" "${BYEL}[-]${R} none"
     box_bottom
     reply=$(ask)
     say ""
@@ -354,6 +364,30 @@ if [ -z "$admin" ]; then
   fi
 fi
 case "$admin" in on|true|1|yes) admin=on ;; off|false|0|no) admin=off ;; *) die_usage "--admin takes on or off" ;; esac
+
+previous_ci=$(saved ci)
+if [ -z "$ci" ]; then
+  default_ci=off
+  [ "$previous_ci" = true ] && default_ci=on
+  if [ "$interactive" = 1 ]; then
+    box_top "LOCAL CI"
+    box_line "A git server (Gitea) and a CI (Woodpecker) beside the"
+    box_line "engine? Your projects push there, it builds them and"
+    box_line "publishes here. Started and wired for you, no sign-in."
+    if [ "$default_ci" = on ]; then
+      box_line "[Y] yes (now on)  [N] no" "${BYEL}[Y]${R} yes (now on)  ${BYEL}[N]${R} no"
+    else
+      box_line "[Y] yes  [N] no (default)" "${BYEL}[Y]${R} yes  ${BYEL}[N]${R} no (default)"
+    fi
+    box_bottom
+    reply=$(ask)
+    say ""
+    case "$reply" in [yY]*) ci=on ;; [nN]*) ci=off ;; *) ci=$default_ci ;; esac
+  else
+    ci=$default_ci
+  fi
+fi
+case "$ci" in on|true|1|yes) ci=on ;; off|false|0|no) ci=off ;; *) die_usage "--ci takes on or off" ;; esac
 
 if [ -z "$image" ]; then
   if [ -n "$version" ]; then image="$REGISTRY:$version"; else image="$REGISTRY:$INSTALLER_VERSION"; fi
@@ -405,6 +439,32 @@ spinner_wait $! "the engine wakes up" || fail "the engine did not answer in two 
 status_line "engine answers" OK
 box_bottom
 say ""
+
+# --- local CI -------------------------------------------------------------------
+
+ci_log=$(mktemp)
+if [ "$ci" = on ]; then
+  box_top "LOCAL CI"
+  docker exec "$CONTAINER" bin/rails "warp_engine:local:enable[woodpecker]" >"$ci_log" 2>&1 &
+  if spinner_wait $! "git server and CI (the first time pulls their images)"; then
+    status_line "git server 127.0.0.1:$((port + 1))" OK
+    status_line "CI" OK
+  else
+    status_line "git server and CI" FAIL
+    tail -n 3 "$ci_log" | while IFS= read -r line; do box_line "$(printf '%.58s' "$line")"; done
+    box_line "the engine runs; run this again with --ci on to retry"
+    ci=failed
+  fi
+  box_bottom
+  say ""
+elif [ "$previous_ci" = true ]; then
+  box_top "LOCAL CI"
+  docker exec "$CONTAINER" bin/rails "warp_engine:local:disable[gitea]" >"$ci_log" 2>&1 &
+  spinner_wait $! "stopping the git server and CI" && status_line "git server and CI stopped (data kept)" OK
+  box_bottom
+  say ""
+fi
+rm -f "$ci_log"
 
 # --- builder images -------------------------------------------------------------
 
@@ -476,8 +536,12 @@ if [ "$admin" = on ] && [ -f "$data_dir/admin.json" ]; then
 else
   box_line "admin ............ off (--admin on turns it on)"
 fi
-box_line "local CI ......... git server + Woodpecker, started from the"
-box_line "                   Toolbox when a project wants them (127.0.0.1:$((port + 1)))"
+case "$ci" in
+  on) box_line "local CI ......... git server http://localhost:$((port + 1))" "local CI ......... git server ${BWHT}http://localhost:$((port + 1))${R}"
+      box_line "                   + Woodpecker; in VS Code: Set Up Local CI" ;;
+  failed) box_line "local CI ......... did not start (--ci on retries)" ;;
+  *) box_line "local CI ......... off (--ci on turns it on)" ;;
+esac
 box_line ""
 box_line "Open VS Code: the WarpEngine Toolbox finds this engine" "${BGRN}Open VS Code:${R} the WarpEngine Toolbox finds this engine"
 box_line "by itself. Run this again any time to change the answers."

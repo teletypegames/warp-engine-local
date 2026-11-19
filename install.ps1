@@ -3,12 +3,13 @@
 #   irm https://git.teletypegames.org/engines/warp-engine-local/raw/branch/master/install.ps1 | iex
 #   & ([scriptblock]::Create((irm …/install.ps1))) -Port 7471 -Admin on
 #
-# The same answers and options as install.sh: -Port, -SyncTarget, -Admin on|off, -Builders,
+# The same answers and options as install.sh: -Port, -SyncTarget, -Admin on|off, -Ci on|off, -Builders,
 # -Version, -Image, -Data, -Yes, -Status, -Uninstall, -Purge.
 param(
   [int]$Port = 0,
   [string]$SyncTarget = "",
   [string]$Admin = "",
+  [string]$Ci = "",
   [string]$Builders = "",
   [string]$Version = "",
   [string]$Image = "",
@@ -20,13 +21,14 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$InstallerVersion = "1.2.0"
+$InstallerVersion = "1.3.0"
 $Registry = "git.teletypegames.org/build/warp-engine-local"
 $Container = "warp-engine-local"
 $Network = "warp-local"
 $Label = "org.teletypegames.warp-engine.local=1"
 $DefaultPort = 7470
-$DefaultSyncTarget = "https://orbit.teletypegames.org"
+$DefaultSyncTarget = "none"
+$ExampleSyncTarget = "https://games.example.org"
 $Width = 62
 
 $e = [char]27
@@ -91,7 +93,7 @@ if ($Status) {
   Banner; BoxTop "STATUS"
   if (ContainerExists) { BoxLine ("container ........ " + (docker container inspect -f "{{.State.Status}}" $Container)) }
   else { BoxLine "container ........ not installed" }
-  if ($saved) { BoxLine "port ............. $($saved.port)"; BoxLine "sync target ...... $($saved.syncTarget)"; BoxLine "admin ............ $($saved.admin)" }
+  if ($saved) { BoxLine "port ............. $($saved.port)"; BoxLine "sync target ...... $($saved.syncTarget)"; BoxLine "admin ............ $($saved.admin)"; BoxLine "local CI ......... $($saved.ci)" }
   BoxLine "data ............. $Data"; BoxBottom; exit 0
 }
 
@@ -131,9 +133,10 @@ if (-not $SyncTarget) {
   $default = if ($saved -and $saved.syncTarget) { $saved.syncTarget } else { $DefaultSyncTarget }
   if ($interactive) {
     BoxTop "SYNC TARGET"
-    BoxLine "Where should your releases go?"
+    BoxLine "Send your releases on to another WarpEngine instance?"
+    BoxLine "Type its address, e.g. $ExampleSyncTarget"
     BoxLine "[Enter] $default" "$Ye[Enter]$R $Wh$default$R"
-    BoxLine "or type an address, [-] none" "or type an address, $Ye[-]$R none"
+    BoxLine "[-] none" "$Ye[-]$R none"
     BoxBottom
     $reply = Ask; Write-Host ""
     $SyncTarget = if ($reply) { $reply } else { $default }
@@ -154,11 +157,25 @@ if (-not $Admin) {
   } else { $Admin = $default }
 }
 $adminFlag = if ($Admin -eq "on") { "1" } else { "0" }
+$previousCi = [bool]($saved -and $saved.ci)
+if (-not $Ci) {
+  $default = if ($previousCi) { "on" } else { "off" }
+  if ($interactive) {
+    BoxTop "LOCAL CI"
+    BoxLine "A git server (Gitea) and a CI (Woodpecker) beside the"
+    BoxLine "engine? Your projects push there, it builds them and"
+    BoxLine "publishes here. Started and wired for you, no sign-in."
+    BoxLine "[Y] yes  [N] no (now $default)" "$Ye[Y]$R yes  $Ye[N]$R no (now $default)"
+    BoxBottom
+    $reply = Ask; Write-Host ""
+    $Ci = if ($reply -match "^[yY]") { "on" } elseif ($reply -match "^[nN]") { "off" } else { $default }
+  } else { $Ci = $default }
+}
 if (-not $Image) { $Image = if ($Version) { "${Registry}:$Version" } else { "${Registry}:$InstallerVersion" } }
 
 BoxTop "INSTALL"
 New-Item -ItemType Directory -Force -Path $Data | Out-Null
-@{ port = $Port; syncTarget = $SyncTarget; admin = ($Admin -eq "on"); image = $Image; installer = $InstallerVersion } |
+@{ port = $Port; syncTarget = $SyncTarget; admin = ($Admin -eq "on"); ci = ($Ci -eq "on"); image = $Image; installer = $InstallerVersion } |
   ConvertTo-Json | Set-Content -Path $configFile
 StatusLine "data folder" OK
 docker pull -q $Image | Out-Null
@@ -182,6 +199,16 @@ if (-not $ready) { Fail "the engine did not answer in two minutes" "docker logs 
 StatusLine "engine answers" OK
 BoxBottom; Write-Host ""
 
+if ($Ci -eq "on") {
+  BoxTop "LOCAL CI"
+  Write-Host "  starting the git server and CI (the first time pulls their images) ..."
+  $ciLog = docker exec $Container bin/rails "warp_engine:local:enable[woodpecker]" 2>&1
+  if ($LASTEXITCODE -eq 0) { StatusLine "git server 127.0.0.1:$($Port + 1)" OK; StatusLine "CI" OK }
+  else { StatusLine "git server and CI" FAIL; $ciLog | Select-Object -Last 3 | ForEach-Object { BoxLine "$_" }; $Ci = "failed" }
+  BoxBottom; Write-Host ""
+} elseif ($previousCi) {
+  docker exec $Container bin/rails "warp_engine:local:disable[gitea]" 2>&1 | Out-Null
+}
 $platforms = (Invoke-RestMethod "$url/build/platforms").platforms | Where-Object { $_.ci.builder }
 if (-not $Builders) {
   if ($interactive) {
@@ -219,8 +246,9 @@ if ($Admin -eq "on" -and (Test-Path $adminFile)) {
   BoxLine "                   $($a.email) / $($a.password)"
 } else { BoxLine "admin ............ off (-Admin on turns it on)" }
 BoxLine ""
-BoxLine "local CI ......... git server + Woodpecker, started from the"
-BoxLine "                   Toolbox when a project wants them (127.0.0.1:$($Port + 1))"
+if ($Ci -eq "on") { BoxLine "local CI ......... git server http://localhost:$($Port + 1)"; BoxLine "                   + Woodpecker; in VS Code: Set Up Local CI" }
+elseif ($Ci -eq "failed") { BoxLine "local CI ......... did not start (-Ci on retries)" }
+else { BoxLine "local CI ......... off (-Ci on turns it on)" }
 BoxLine ""
 BoxLine "Open VS Code: the WarpEngine Toolbox finds this engine" "${Gr}Open VS Code:$R the WarpEngine Toolbox finds this engine"
 BoxLine "by itself. Run this again any time to change the answers."

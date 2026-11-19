@@ -14,6 +14,6 @@ services:
     environment:
       PORT: ${PORT:-7470}
       WARP_ADMIN: ${WARP_ADMIN:-0}
-      WARP_SYNC_TARGET: ${WARP_SYNC_TARGET:-https://orbit.teletypegames.org}
+      WARP_SYNC_TARGET: ${WARP_SYNC_TARGET:-none}
     volumes:
       - ./tmp/data:/data

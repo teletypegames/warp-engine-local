@@ -2,9 +2,9 @@
 
 A [WarpEngine](https://git.teletypegames.org/engines/warp_engine) on your own machine: one
 container, one port, no setup. The [WarpEngine Toolbox](https://marketplace.visualstudio.com/items?itemName=TeletypeGames.warpengine-toolbox)
-finds it by itself, you publish your games to it from VS Code, and it syncs the releases on to
-a catalog of your choice — [Teletype Orbit](https://orbit.teletypegames.org) unless you name
-another.
+finds it by itself, you publish your games to it from VS Code, and — if you name one — it syncs
+the releases on to another WarpEngine instance. Want a git server and a CI too? Say yes once,
+and they run beside it.
 
 ## Install
 
@@ -20,17 +20,19 @@ Windows (Docker Desktop, PowerShell in Windows Terminal):
 irm https://git.teletypegames.org/engines/warp-engine-local/raw/branch/master/install.ps1 | iex
 ```
 
-The installer checks Docker and the port, asks three things — where your releases go (Enter:
-`https://orbit.teletypegames.org`), whether you want the admin web UI (no by default), and
-whether to pull the builder images now (no by default: the pipelines pull them when they need
-them) — then starts the engine and tells you where everything is. Run it again any time: it
+The installer checks Docker and the port, asks four things — another WarpEngine instance your
+releases go to (none by default; e.g. `https://games.example.org`), whether you want the admin
+web UI (no by default), whether you want the local CI — a git server and a CI beside the engine
+(no by default) —, and whether to pull the builder images now (no by default: the pipelines pull
+them when they need them) — then starts the engine and tells you where everything is. Run it again any time: it
 remembers the answers, replaces the container and keeps your data.
 
 | Option (`install.sh` / `install.ps1`) | |
 | --- | --- |
 | `--port N` / `-Port N` | the port on 127.0.0.1 (default 7470) |
-| `--sync-target URL` / `-SyncTarget URL` | where your releases go; `none` for nowhere |
+| `--sync-target URL` / `-SyncTarget URL` | another WarpEngine instance your releases go to; `none` for nowhere |
 | `--admin on\|off` / `-Admin on\|off` | the admin web UI at `/admin` |
+| `--ci on\|off` / `-Ci on\|off` | the local CI: a git server (Gitea) and a CI (Woodpecker); `off` stops them, the data stays |
 | `--builders none\|all\|"c64 love"` / `-Builders …` | pull builder images now |
 | `--version V` / `-Version V` | another version of the engine image |
 | `--yes` / `-Yes` | ask nothing: the saved answers, or the defaults |
@@ -66,8 +68,9 @@ What answers on the port:
 ### The local CI
 
 The engine runs with the Docker socket (`/var/run/docker.sock`) and on the `warp-local` network,
-so it can start a git server and a CI beside itself when a project wants them (the Toolbox's
-**Set Up Local CI**, or the Admin API's `local_components`):
+so it can start a git server and a CI beside itself. Answer yes to the installer's *Local CI*
+question (or `--ci on`), then the Toolbox's **Set Up Local CI** points a project at them (a
+`wplocal` git remote):
 
 | | |
 | --- | --- |
@@ -112,6 +115,7 @@ checks the installers (shellcheck, the two versions agree, the tag matches).
 
 | Local | Engine | |
 | --- | --- | --- |
+| 1.3.0 | `warp_engine ~> 5.5` | the installer asks about the local CI (`--ci`), no sync target unless you name one |
 | 1.2.0 | `warp_engine ~> 5.4` | the local CI: the Docker socket and the `warp-local` network, the full pipeline set |
 | 1.1.0 | `warp_engine ~> 5.3` | per-peer channels, pairing with a remote engine, images go with the releases |
 | 1.0.1 | `warp_engine ~> 5.2` | the image is pushed by hand, `bin/push-image` |

@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   build-essential git libyaml-dev pkg-config curl \
   && rm -rf /var/lib/apt/lists/*
 
-ARG WARP_ENGINE_VERSION="~> 5.4"
+ARG WARP_ENGINE_VERSION="~> 5.5"
 ARG WARP_ENGINE_PATH=""
 ENV RAILS_ENV=production \
     WARP_DATA=/data \

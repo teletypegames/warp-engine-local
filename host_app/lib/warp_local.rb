@@ -13,7 +13,7 @@ module WarpLocal
   # The admin web UI sign-in, written when the admin is first turned on.
   ADMIN_FILE = "admin.json".freeze
   # The sync target when none is given.
-  DEFAULT_SYNC_TARGET = "https://orbit.teletypegames.org".freeze
+  DEFAULT_SYNC_TARGET = "none".freeze
 
   module_function
 
