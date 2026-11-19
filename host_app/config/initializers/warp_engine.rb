@@ -75,6 +75,8 @@ Rails.application.config.to_prepare do
 
     local_components do
       enable
+      name_prefix "warp-engine-local"
+      network "warp-engine-local"
       engine_url "http://warp-engine-local:#{WarpLocal.port}"
       forge_port WarpLocal.port + 1
     end

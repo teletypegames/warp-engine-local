@@ -3,7 +3,8 @@ require "securerandom"
 require "fileutils"
 
 # What the local engine reads from its environment and its data folder, before
-# Rails and after: the port, the data folder, whether the admin web UI is on,
+# Rails and after: the port, the data folder, whether the admin web UI is on
+# (and whether it signs you in by itself),
 # the sync target, and the secrets generated on first boot.
 module WarpLocal
   # The token file the developer tools read (WarpEngine Toolbox).
@@ -23,7 +24,11 @@ module WarpLocal
 
   def data_path(*parts) = File.join(data_dir, *parts)
 
-  def admin? = %w[1 true on yes].include?(ENV.fetch("WARP_ADMIN", "0").downcase)
+  def admin? = flag?("WARP_ADMIN")
+
+  def admin_bypass? = admin? && flag?("WARP_ADMIN_BYPASS")
+
+  def flag?(name) = %w[1 true on yes].include?(ENV.fetch(name, "0").downcase)
 
   def sync_target
     value = ENV.fetch("WARP_SYNC_TARGET", DEFAULT_SYNC_TARGET).strip

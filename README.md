@@ -20,24 +20,27 @@ Windows (Docker Desktop, PowerShell in Windows Terminal):
 irm https://git.teletypegames.org/engines/warp-engine-local/raw/branch/master/install.ps1 | iex
 ```
 
-The installer checks Docker and the port, asks four things — another WarpEngine instance your
-releases go to (none by default; e.g. `https://games.example.org`), whether you want the admin
-web UI (no by default), whether you want the local CI — a git server and a CI beside the engine
-(no by default) —, and whether to pull the builder images now (no by default: the pipelines pull
-them when they need them) — then starts the engine and tells you where everything is. Run it again any time: it
-remembers the answers, replaces the container and keeps your data.
+The installer checks Docker and the port, then asks in menus (arrow keys and Enter; without
+colours it takes a number): another WarpEngine instance your releases go to (none by default;
+e.g. `https://games.example.org`), whether you want the admin web UI (yes by default) and
+whether it signs you in by itself — no password, the engine listens on 127.0.0.1 only (yes by
+default) —, whether you want the local CI — a git server and a CI beside the engine (yes by
+default) —, and whether to pull the builder images now (no by default: the pipelines pull them
+when they need them). Then it starts the engine and tells you where everything is. Run it again
+any time: it remembers the answers, replaces the container and keeps your data.
 
 | Option (`install.sh` / `install.ps1`) | |
 | --- | --- |
 | `--port N` / `-Port N` | the port on 127.0.0.1 (default 7470) |
 | `--sync-target URL` / `-SyncTarget URL` | another WarpEngine instance your releases go to; `none` for nowhere |
 | `--admin on\|off` / `-Admin on\|off` | the admin web UI at `/admin` |
+| `--admin-bypass on\|off` / `-AdminBypass on\|off` | `/admin` signs you in by itself, no password |
 | `--ci on\|off` / `-Ci on\|off` | the local CI: a git server (Gitea) and a CI (Woodpecker); `off` stops them, the data stays |
 | `--builders none\|all\|"c64 love"` / `-Builders …` | pull builder images now |
 | `--version V` / `-Version V` | another version of the engine image |
 | `--yes` / `-Yes` | ask nothing: the saved answers, or the defaults |
 | `--status` / `-Status` | what is installed |
-| `--uninstall [--purge]` / `-Uninstall [-Purge]` | remove the container (and the data) |
+| `--uninstall [--purge]` / `-Uninstall [-Purge]` | remove the containers (and the data, the volumes, the network and the images) |
 
 Without a terminal (a script, CI, a tool running it) the installer asks nothing and takes the
 saved answers or the defaults; `NO_COLOR=1` turns the colours off.
@@ -53,7 +56,7 @@ saved answers or the defaults; `NO_COLOR=1` turns the colours off.
 | `softwares/`, `images/` | the releases' files and the images |
 | `local-token` | the token the Toolbox signs in with (every scope) |
 | `secrets.json` | generated on first boot |
-| `admin.json` | the admin web UI sign-in, once the admin is on |
+| `admin.json` | the admin web UI sign-in, once the admin is on (not needed with the bypass) |
 | `config.json` | the installer's answers |
 
 What answers on the port:
@@ -67,19 +70,21 @@ What answers on the port:
 
 ### The local CI
 
-The engine runs with the Docker socket (`/var/run/docker.sock`) and on the `warp-local` network,
-so it can start a git server and a CI beside itself. Answer yes to the installer's *Local CI*
-question (or `--ci on`), then the Toolbox's **Set Up Local CI** points a project at them (a
-`wplocal` git remote):
+The engine runs with the Docker socket (`/var/run/docker.sock`) and on the `warp-engine-local`
+network, so it can start a git server and a CI beside itself. Answer yes to the installer's
+*Local CI* question (or `--ci on`), and the Toolbox offers to point your project at them (a
+`wplocal` git remote; **Set up local CI** in the command palette does it any time):
 
 | | |
 | --- | --- |
-| `warp-local-gitea` | Gitea on `127.0.0.1:<port + 1>` (7471); your pushes go there (the `warp` remote) |
-| `warp-local-woodpecker`, `warp-local-woodpecker-agent` | Woodpecker, reachable only on the network; it runs the pipelines on your Docker |
+| `warp-engine-local-gitea` | Gitea on `127.0.0.1:<port + 1>` (7471); your pushes go there (the `wplocal` remote) |
+| `warp-engine-local-woodpecker`, `warp-engine-local-woodpecker-agent` | Woodpecker, reachable only on the network; it runs the pipelines on your Docker |
 
 Everything is made with generated passwords, nobody signs in; the data lives in the
-`warp-local-gitea-data` and `warp-local-woodpecker-data` volumes. `--uninstall` removes these
-containers too, `--purge` their volumes and the network as well.
+`warp-engine-local-gitea-data` and `warp-engine-local-woodpecker-data` volumes. `--uninstall`
+removes these containers too, `--purge` their volumes, the network and the images as well (the
+Toolbox's *Servers* view does the same with **Purge Local Engine…**). Installer 1.4 replaces the
+`warp-local-*` containers of 1.2–1.3 with these: set your projects up on the local CI again.
 
 Inside the container: `docker exec warp-engine-local bin/warp-engine token` prints the token
 (`--reset` issues a new one), `bin/warp-engine admin` the admin sign-in.
@@ -115,6 +120,7 @@ checks the installers (shellcheck, the two versions agree, the tag matches).
 
 | Local | Engine | |
 | --- | --- | --- |
+| 1.4.0 | `warp_engine ~> 5.5` (5.5.3) | menus in the installer; admin, admin sign-in bypass and local CI on by default; `warp-engine-local-*` component names; `--purge` removes the images too |
 | 1.3.0 | `warp_engine ~> 5.5` | the installer asks about the local CI (`--ci`), no sync target unless you name one |
 | 1.2.0 | `warp_engine ~> 5.4` | the local CI: the Docker socket and the `warp-local` network, the full pipeline set |
 | 1.1.0 | `warp_engine ~> 5.3` | per-peer channels, pairing with a remote engine, images go with the releases |

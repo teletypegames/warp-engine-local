@@ -1,9 +1,16 @@
 # The sign-in of the admin web UI: created the first time the admin is turned
-# on, with a random password written to admin.json in the data folder.
+# on, with a random password written to admin.json in the data folder. With
+# the bypass on (WARP_ADMIN_BYPASS=1) nobody types it: /admin signs you in.
 module LocalAdmin
   EMAIL = "admin@local".freeze
 
   module_function
+
+  # The admin user, made when there is none yet.
+  def user
+    ensure!
+    AdminUser.find_by!(email: EMAIL)
+  end
 
   # Creates the admin user when there is none; returns the sign-in Hash.
   def ensure!

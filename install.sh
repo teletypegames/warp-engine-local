@@ -10,24 +10,27 @@
 #   --port N               the port on 127.0.0.1 (default 7470)
 #   --sync-target URL      another WarpEngine instance your releases go to, e.g.
 #                          https://games.example.org (default none)
-#   --admin on|off         the admin web UI at /admin (default off)
+#   --admin on|off         the admin web UI at /admin (default on)
+#   --admin-bypass on|off  /admin signs you in by itself, no password (default on)
 #   --ci on|off            a git server (Gitea) and a CI (Woodpecker) beside the
-#                          engine, on 127.0.0.1:<port + 1> (default off)
+#                          engine, on 127.0.0.1:<port + 1> (default on)
 #   --builders LIST        pull builder images now: none, all, or names (c64 love …)
 #   --version V            the engine image version (default: this installer's)
 #   --image REF            a whole image reference instead (for testing a build of your own)
 #   --data DIR             the data folder (default ~/.warpengine)
 #   --yes                  ask nothing: the saved answers, or the defaults
 #   --status               show what is installed
-#   --uninstall            remove the container (the data stays; add --purge to remove it too)
+#   --uninstall            remove the containers (the data stays; --purge removes
+#                          the data, the volumes, the network and the images too)
 #
 # Without a terminal (CI, a tool running it) it asks nothing either.
 set -eu
 
-INSTALLER_VERSION="1.3.0"
+INSTALLER_VERSION="1.4.0"
 REGISTRY="git.teletypegames.org/build/warp-engine-local"
 CONTAINER="warp-engine-local"
-NETWORK="warp-local"
+NETWORK="warp-engine-local"
+LEGACY_PREFIX="warp-local"
 SOCKET="/var/run/docker.sock"
 LABEL="org.teletypegames.warp-engine.local=1"
 DEFAULT_PORT=7470
@@ -37,6 +40,7 @@ EXAMPLE_SYNC_TARGET="https://games.example.org"
 port=""
 sync_target=""
 admin=""
+admin_bypass=""
 ci=""
 builders=""
 version=""
@@ -53,6 +57,7 @@ while [ $# -gt 0 ]; do
     --port) port="${2:?--port needs a number}"; shift 2 ;;
     --sync-target) sync_target="${2:?--sync-target needs an address or none}"; shift 2 ;;
     --admin) admin="${2:?--admin needs on or off}"; shift 2 ;;
+    --admin-bypass) admin_bypass="${2:?--admin-bypass needs on or off}"; shift 2 ;;
     --ci) ci="${2:?--ci needs on or off}"; shift 2 ;;
     --builders) builders="${2:?--builders needs none, all or a list}"; shift 2 ;;
     --version) version="${2:?--version needs a version}"; shift 2 ;;
@@ -77,11 +82,11 @@ case "${LC_ALL:-${LC_CTYPE:-${LANG:-}}}" in *UTF-8*|*utf8*|*UTF8*|*utf-8*) utf8=
 [ "$fancy" = 1 ] || utf8=0
 
 if [ "$fancy" = 1 ]; then
-  R="${ESC}[0m"; B="${ESC}[1m"; DIM="${ESC}[2m"
+  R="${ESC}[0m"; B="${ESC}[1m"; DIM="${ESC}[2m"; REV="${ESC}[7m"
   RED="${ESC}[31m"; YEL="${ESC}[33m"; BLU="${ESC}[34m"; MAG="${ESC}[35m"; CYN="${ESC}[36m"; WHT="${ESC}[37m"
   BRED="${ESC}[91m"; BGRN="${ESC}[92m"; BYEL="${ESC}[93m"; BBLU="${ESC}[94m"; BMAG="${ESC}[95m"; BCYN="${ESC}[96m"; BWHT="${ESC}[97m"
 else
-  R=""; B=""; DIM=""; RED=""; YEL=""; BLU=""; MAG=""; CYN=""; WHT=""
+  R=""; B=""; DIM=""; REV=""; RED=""; YEL=""; BLU=""; MAG=""; CYN=""; WHT=""
   BRED=""; BGRN=""; BYEL=""; BBLU=""; BMAG=""; BCYN=""; BWHT=""
 fi
 
@@ -217,9 +222,92 @@ ask() {
   printf '%s' "$answer"
 }
 
+menu_draw() {
+  i=0
+  for label in "$@"; do
+    if [ "$i" = "$sel" ]; then
+      box_line "> $label" "${BYEL}${B}>${R} ${REV}${BWHT}${label}${R}"
+    else
+      box_line "  $label" "  ${WHT}${label}${R}"
+    fi
+    i=$((i + 1))
+  done
+}
+
+menu_key() {
+  dd bs=1 count="$1" 2>/dev/null </dev/tty
+}
+
+menu_restore() {
+  [ -n "${tty_state:-}" ] && stty "$tty_state" </dev/tty 2>/dev/null
+  printf '%s' "${ESC}[?25h"
+}
+
+menu_pick() {
+  count=$#
+  tty_state=$(stty -g </dev/tty)
+  trap 'menu_restore; exit 130' INT TERM
+  stty -icanon -echo min 1 time 0 </dev/tty
+  printf '%s' "${ESC}[?25l"
+  while :; do
+    key=$(menu_key 1)
+    case "$key" in
+      "") break ;;
+      "$ESC") case "$(menu_key 2)" in "[A"|OA) sel=$(((sel + count - 1) % count)) ;; "[B"|OB) sel=$(((sel + 1) % count)) ;; esac ;;
+      k|K) sel=$(((sel + count - 1) % count)) ;;
+      j|J) sel=$(((sel + 1) % count)) ;;
+      [1-9]) [ "$key" -le "$count" ] && sel=$((key - 1)) ;;
+    esac
+    printf '%s' "${ESC}[$((count + 1))A"
+    menu_draw "$@"
+    box_bottom
+  done
+  menu_restore
+  trap - INT TERM
+  tty_state=""
+}
+
+menu_typed() {
+  n=1
+  for label in "$@"; do
+    mark=" "
+    [ $((n - 1)) = "$sel" ] && mark="*"
+    box_line "$mark $n) $label"
+    n=$((n + 1))
+  done
+  box_line "(a number; Enter keeps the one marked *)"
+  box_bottom
+  reply=$(ask)
+  case "$reply" in
+    ""|*[!0-9]*) ;;
+    *) [ "$reply" -ge 1 ] && [ "$reply" -le $# ] && sel=$((reply - 1)) ;;
+  esac
+}
+
+# menu DEFAULT LABEL... : a choice inside the open box; sets $choice (0-based).
+menu() {
+  sel=$1
+  shift
+  if [ "$fancy" = 1 ]; then
+    box_line "[Up/Down] move  [Enter] choose" "${DIM}[Up/Down] move  [Enter] choose${R}"
+    box_line ""
+    menu_draw "$@"
+    box_bottom
+    menu_pick "$@"
+  else
+    menu_typed "$@"
+  fi
+  choice=$sel
+  say ""
+}
+
 # --- saved answers ------------------------------------------------------------
 
 config_file="$data_dir/config.json"
+
+on_off() { case "$1" in true) echo on ;; false) echo off ;; *) echo "$2" ;; esac; }
+
+answered() { [ -f "$config_file" ] && grep -q '"adminBypass"' "$config_file"; }
 
 saved() {
   [ -f "$config_file" ] || return 0
@@ -234,6 +322,7 @@ write_config() {
   "port": $port,
   "syncTarget": "$sync_target",
   "admin": $( [ "$admin" = on ] && echo true || echo false ),
+  "adminBypass": $( [ "$admin_bypass" = on ] && echo true || echo false ),
   "ci": $( [ "$ci" = on ] && echo true || echo false ),
   "image": "$image",
   "installer": "$INSTALLER_VERSION"
@@ -259,7 +348,7 @@ if [ "$action" = "status" ]; then
   fi
   box_line "port ............. $(saved port)"
   box_line "sync target ...... $(saved syncTarget)"
-  box_line "admin ............ $(saved admin)"
+  box_line "admin ............ $(saved admin) (bypass: $(saved adminBypass))"
   box_line "local CI ......... $(saved ci)"
   box_line "data ............. $(home_path "$data_dir")"
   box_bottom
@@ -269,6 +358,7 @@ fi
 if [ "$action" = "uninstall" ]; then
   banner
   box_top "UNINSTALL"
+  images=$(docker ps -a --filter "label=$LABEL" --format '{{.Image}}' | sort -u)
   if container_exists; then
     docker rm -f "$CONTAINER" >/dev/null
     status_line "container removed" OK
@@ -288,7 +378,16 @@ if [ "$action" = "uninstall" ]; then
       for v in $volumes; do docker volume rm "$v" >/dev/null; done
       status_line "git server and CI data removed" OK
     fi
-    docker network rm "$NETWORK" >/dev/null 2>&1 && status_line "network $NETWORK removed" OK
+    for n in "$NETWORK" "$LEGACY_PREFIX"; do
+      docker network rm "$n" >/dev/null 2>&1 && status_line "network $n removed" OK
+    done
+    images="$images
+$(docker images --format '{{.Repository}}:{{.Tag}}' "$REGISTRY")"
+    removed=0
+    for i in $(printf '%s\n' "$images" | sort -u); do
+      docker image rm "$i" >/dev/null 2>&1 && removed=$((removed + 1))
+    done
+    status_line "$removed image(s) removed" OK
   else
     box_line "the data stays in $data_dir (--purge removes it)"
   fi
@@ -325,68 +424,71 @@ say ""
 
 if [ -z "$sync_target" ]; then
   previous=$(saved syncTarget)
-  default_target=${previous:-$DEFAULT_SYNC_TARGET}
+  sync_target=${previous:-$DEFAULT_SYNC_TARGET}
   if [ "$interactive" = 1 ]; then
     box_top "SYNC TARGET"
     box_line "Send your releases on to another WarpEngine instance?"
-    box_line "Type its address, e.g. $EXAMPLE_SYNC_TARGET"
-    box_line "[Enter] $default_target" "${BYEL}[Enter]${R} ${BWHT}${default_target}${R}"
-    box_line "[-] none" "${BYEL}[-]${R} none"
-    box_bottom
-    reply=$(ask)
-    say ""
-    sync_target=${reply:-$default_target}
-  else
-    sync_target=$default_target
+    if [ "$sync_target" = none ]; then
+      menu 0 "No: they stay on this machine" "Yes: type its address"
+      [ "$choice" = 1 ] && sync_target="?"
+    else
+      menu 1 "No: they stay on this machine" "Yes: $sync_target" "Another one: type its address"
+      case "$choice" in 0) sync_target=none ;; 2) sync_target="?" ;; esac
+    fi
+    if [ "$sync_target" = "?" ]; then
+      box_top "SYNC TARGET"
+      box_line "Its address, e.g. $EXAMPLE_SYNC_TARGET"
+      box_bottom
+      sync_target=$(ask)
+      say ""
+      [ -n "$sync_target" ] || sync_target=none
+    fi
   fi
 fi
 case "$sync_target" in -|none) sync_target="none" ;; http://*|https://*) ;; *) die_usage "the sync target must be an http(s) address or none, not $sync_target" ;; esac
 
-if [ -z "$admin" ]; then
-  previous=$(saved admin)
-  default_admin=off
-  [ "$previous" = true ] && default_admin=on
+yes_no() {
   if [ "$interactive" = 1 ]; then
-    box_top "ADMIN WEB UI"
-    box_line "A web admin at /admin? Headless is the default:"
-    box_line "the editor and the API are all you need."
-    if [ "$default_admin" = on ]; then
-      box_line "[Y] yes (now on)  [N] no" "${BYEL}[Y]${R} yes (now on)  ${BYEL}[N]${R} no"
-    else
-      box_line "[Y] yes  [N] no (default)" "${BYEL}[Y]${R} yes  ${BYEL}[N]${R} no (default)"
-    fi
-    box_bottom
-    reply=$(ask)
-    say ""
-    case "$reply" in [yY]*) admin=on ;; [nN]*) admin=off ;; *) admin=$default_admin ;; esac
+    if [ "$1" = on ]; then menu 0 "$2" "$3"; else menu 1 "$2" "$3"; fi
+    if [ "$choice" = 0 ]; then echo on; else echo off; fi >"$answer_file"
   else
-    admin=$default_admin
+    echo "$1" >"$answer_file"
   fi
+}
+
+answer_file=$(mktemp)
+default_admin=on
+default_bypass=on
+default_ci=on
+if answered; then
+  default_admin=$(on_off "$(saved admin)" on)
+  default_bypass=$(on_off "$(saved adminBypass)" on)
+  default_ci=$(on_off "$(saved ci)" on)
+fi
+
+if [ -z "$admin" ]; then
+  [ "$interactive" = 1 ] && { box_top "ADMIN WEB UI"; box_line "A web admin at /admin: the catalog, the releases, the"; box_line "sync peers, the tool sign-ins, in your browser."; }
+  yes_no "$default_admin" "Yes: the admin web UI at /admin" "No: headless, the editor and the API are enough"
+  admin=$(cat "$answer_file")
 fi
 case "$admin" in on|true|1|yes) admin=on ;; off|false|0|no) admin=off ;; *) die_usage "--admin takes on or off" ;; esac
 
+if [ "$admin" = off ]; then
+  admin_bypass=off
+elif [ -z "$admin_bypass" ]; then
+  [ "$interactive" = 1 ] && { box_top "ADMIN SIGN-IN"; box_line "Only this machine reaches the engine (127.0.0.1)."; box_line "Skip the password there?"; }
+  yes_no "$default_bypass" "Yes: /admin signs you in by itself" "No: sign in with the password in admin.json"
+  admin_bypass=$(cat "$answer_file")
+fi
+case "$admin_bypass" in on|true|1|yes) admin_bypass=on ;; off|false|0|no) admin_bypass=off ;; *) die_usage "--admin-bypass takes on or off" ;; esac
+
 previous_ci=$(saved ci)
 if [ -z "$ci" ]; then
-  default_ci=off
-  [ "$previous_ci" = true ] && default_ci=on
-  if [ "$interactive" = 1 ]; then
-    box_top "LOCAL CI"
-    box_line "A git server (Gitea) and a CI (Woodpecker) beside the"
-    box_line "engine? Your projects push there, it builds them and"
-    box_line "publishes here. Started and wired for you, no sign-in."
-    if [ "$default_ci" = on ]; then
-      box_line "[Y] yes (now on)  [N] no" "${BYEL}[Y]${R} yes (now on)  ${BYEL}[N]${R} no"
-    else
-      box_line "[Y] yes  [N] no (default)" "${BYEL}[Y]${R} yes  ${BYEL}[N]${R} no (default)"
-    fi
-    box_bottom
-    reply=$(ask)
-    say ""
-    case "$reply" in [yY]*) ci=on ;; [nN]*) ci=off ;; *) ci=$default_ci ;; esac
-  else
-    ci=$default_ci
-  fi
+  [ "$interactive" = 1 ] && { box_top "LOCAL CI"; box_line "A git server (Gitea) and a CI (Woodpecker) beside the"; box_line "engine: your projects push there, it builds them and"; box_line "publishes here. Started and wired for you, no sign-in."; }
+  yes_no "$default_ci" "Yes: the git server and the CI" "No: the engine only"
+  ci=$(cat "$answer_file")
 fi
+rm -f "$answer_file"
 case "$ci" in on|true|1|yes) ci=on ;; off|false|0|no) ci=off ;; *) die_usage "--ci takes on or off" ;; esac
 
 if [ -z "$image" ]; then
@@ -415,14 +517,25 @@ fi
 
 admin_flag=0
 [ "$admin" = on ] && admin_flag=1
+bypass_flag=0
+[ "$admin_bypass" = on ] && bypass_flag=1
 docker network inspect "$NETWORK" >/dev/null 2>&1 \
   || docker network create --label "$LABEL" "$NETWORK" >/dev/null \
   || fail "the $NETWORK network could not be made"
 status_line "network $NETWORK" OK
 
+legacy=$(docker ps -aq --filter "label=$LABEL" --filter "name=^$LEGACY_PREFIX-")
+if [ -n "$legacy" ]; then
+  for c in $legacy; do docker rm -f "$c" >/dev/null; done
+  for v in $(docker volume ls -q --filter "label=$LABEL" --filter "name=^$LEGACY_PREFIX-"); do docker volume rm "$v" >/dev/null 2>&1 || true; done
+  docker network rm "$LEGACY_PREFIX" >/dev/null 2>&1 || true
+  status_line "old $LEGACY_PREFIX-* git server and CI removed" OK
+  legacy=1
+fi
+
 docker run -d --name "$CONTAINER" --restart unless-stopped \
   --label "$LABEL" --network "$NETWORK" --network-alias "$CONTAINER" -v "$SOCKET:$SOCKET" \
-  -e PORT="$port" -e WARP_SYNC_TARGET="$sync_target" -e WARP_ADMIN="$admin_flag" \
+  -e PORT="$port" -e WARP_SYNC_TARGET="$sync_target" -e WARP_ADMIN="$admin_flag" -e WARP_ADMIN_BYPASS="$bypass_flag" \
   -p "127.0.0.1:$port:$port" -v "$data_dir:/data" "$image" >/dev/null \
   || fail "the container did not start"
 status_line "container started" OK
@@ -449,6 +562,7 @@ if [ "$ci" = on ]; then
   if spinner_wait $! "git server and CI (the first time pulls their images)"; then
     status_line "git server 127.0.0.1:$((port + 1))" OK
     status_line "CI" OK
+    [ -n "$legacy" ] && box_line "projects on the old CI: Set up local CI again in VS Code"
   else
     status_line "git server and CI" FAIL
     tail -n 3 "$ci_log" | while IFS= read -r line; do box_line "$(printf '%.58s' "$line")"; done
@@ -478,28 +592,32 @@ platform_images() {
 }
 
 if [ -z "$builders" ]; then
+  builders=none
   if [ "$interactive" = 1 ]; then
     names=$(platform_images | cut -d' ' -f1 | tr '\n' ' ')
     box_top "BUILDER IMAGES"
-    box_line "Pull the builder images now? They are large"
-    box_line "(Godot, Bevy: several GB). Pipelines pull them anyway."
-    box_line "[N] none (default)  [A] all" "${BYEL}[N]${R} none (default)  ${BYEL}[A]${R} all"
-    prefix="or a list:"
-    line=""
-    for name in $names; do
-      if [ $((${#line} + ${#name} + 1)) -gt 46 ]; then
-        box_line "$prefix $line"
-        prefix="          "; line=""
-      fi
-      if [ -n "$line" ]; then line="$line $name"; else line=$name; fi
-    done
-    [ -n "$line" ] && box_line "$prefix $line"
-    box_bottom
-    reply=$(ask)
-    say ""
-    case "$reply" in ""|[nN]|none) builders=none ;; [aA]|all) builders=all ;; *) builders=$reply ;; esac
-  else
-    builders=none
+    box_line "Pull the builder images now? They are large (Godot,"
+    box_line "Bevy: several GB), and the pipelines pull them anyway."
+    menu 0 "No: the pipelines pull them when they need them" "All of them" "Some: type their names"
+    case "$choice" in
+      1) builders=all ;;
+      2)
+        box_top "BUILDER IMAGES"
+        prefix="names:"
+        line=""
+        for name in $names; do
+          if [ $((${#line} + ${#name} + 1)) -gt 50 ]; then
+            box_line "$prefix $line"
+            prefix="      "; line=""
+          fi
+          if [ -n "$line" ]; then line="$line $name"; else line=$name; fi
+        done
+        [ -n "$line" ] && box_line "$prefix $line"
+        box_bottom
+        builders=$(ask)
+        say ""
+        [ -n "$builders" ] || builders=none ;;
+    esac
   fi
 fi
 
@@ -528,7 +646,10 @@ else
   box_line "sync target ...... $sync_target"
 fi
 box_line "token ............ $(home_path "$data_dir")/local-token"
-if [ "$admin" = on ] && [ -f "$data_dir/admin.json" ]; then
+if [ "$admin" = on ] && [ "$admin_bypass" = on ]; then
+  box_line "admin ............ $(engine_url)/admin" "admin ............ ${BWHT}$(engine_url)/admin${R}"
+  box_line "                   signs you in by itself"
+elif [ "$admin" = on ] && [ -f "$data_dir/admin.json" ]; then
   email=$(sed -n 's/.*"email": *"\([^"]*\)".*/\1/p' "$data_dir/admin.json")
   password=$(sed -n 's/.*"password": *"\([^"]*\)".*/\1/p' "$data_dir/admin.json")
   box_line "admin ............ $(engine_url)/admin" "admin ............ ${BWHT}$(engine_url)/admin${R}"
@@ -538,7 +659,7 @@ else
 fi
 case "$ci" in
   on) box_line "local CI ......... git server http://localhost:$((port + 1))" "local CI ......... git server ${BWHT}http://localhost:$((port + 1))${R}"
-      box_line "                   + Woodpecker; in VS Code: Set Up Local CI" ;;
+      box_line "                   + Woodpecker, VS Code offers it" ;;
   failed) box_line "local CI ......... did not start (--ci on retries)" ;;
   *) box_line "local CI ......... off (--ci on turns it on)" ;;
 esac
