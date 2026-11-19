@@ -22,7 +22,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$InstallerVersion = "1.4.0"
+$InstallerVersion = "1.4.1"
 $Registry = "git.teletypegames.org/build/warp-engine-local"
 $Container = "warp-engine-local"
 $Network = "warp-engine-local"
@@ -36,7 +36,7 @@ $Width = 62
 $e = [char]27
 $fancy = -not $env:NO_COLOR -and $Host.UI.SupportsVirtualTerminal
 function C($code) { if ($fancy) { "$e[$($code)m" } else { "" } }
-$R = C 0; $B = C 1; $Rev = C 7; $Dim = C 2; $Cy = C 96; $Ye = C 93; $Gr = C 92; $Re = C 91; $Wh = C 97; $Bl = C 94; $Ma = C 95
+$R = C 0; $B = C 1; $Dim = C 2; $Cy = C 96; $Ye = C 93; $Gr = C 92; $Re = C 91; $Wh = C 97; $Bl = C 94; $Ma = C 95
 
 function BoxTop($title) {
   $t = "[ $title ]"
@@ -64,7 +64,7 @@ function Ask() { Write-Host -NoNewline "  $Ye$B>$R "; return [Console]::ReadLine
 
 function MenuDraw($sel, [string[]]$labels) {
   for ($i = 0; $i -lt $labels.Count; $i++) {
-    if ($i -eq $sel) { BoxLine "> $($labels[$i])" "$Ye$B>$R $Rev$Wh$($labels[$i])$R" } else { BoxLine "  $($labels[$i])" "  $($labels[$i])" }
+    if ($i -eq $sel) { BoxLine "> $($labels[$i])" "$Ye$B>$R $Wh$B$($labels[$i])$R" } else { BoxLine "  $($labels[$i])" "  $($labels[$i])" }
   }
   BoxBottom
 }

@@ -26,7 +26,7 @@
 # Without a terminal (CI, a tool running it) it asks nothing either.
 set -eu
 
-INSTALLER_VERSION="1.4.0"
+INSTALLER_VERSION="1.4.1"
 REGISTRY="git.teletypegames.org/build/warp-engine-local"
 CONTAINER="warp-engine-local"
 NETWORK="warp-engine-local"
@@ -82,11 +82,11 @@ case "${LC_ALL:-${LC_CTYPE:-${LANG:-}}}" in *UTF-8*|*utf8*|*UTF8*|*utf-8*) utf8=
 [ "$fancy" = 1 ] || utf8=0
 
 if [ "$fancy" = 1 ]; then
-  R="${ESC}[0m"; B="${ESC}[1m"; DIM="${ESC}[2m"; REV="${ESC}[7m"
+  R="${ESC}[0m"; B="${ESC}[1m"; DIM="${ESC}[2m"
   RED="${ESC}[31m"; YEL="${ESC}[33m"; BLU="${ESC}[34m"; MAG="${ESC}[35m"; CYN="${ESC}[36m"; WHT="${ESC}[37m"
   BRED="${ESC}[91m"; BGRN="${ESC}[92m"; BYEL="${ESC}[93m"; BBLU="${ESC}[94m"; BMAG="${ESC}[95m"; BCYN="${ESC}[96m"; BWHT="${ESC}[97m"
 else
-  R=""; B=""; DIM=""; REV=""; RED=""; YEL=""; BLU=""; MAG=""; CYN=""; WHT=""
+  R=""; B=""; DIM=""; RED=""; YEL=""; BLU=""; MAG=""; CYN=""; WHT=""
   BRED=""; BGRN=""; BYEL=""; BBLU=""; BMAG=""; BCYN=""; BWHT=""
 fi
 
@@ -226,7 +226,7 @@ menu_draw() {
   i=0
   for label in "$@"; do
     if [ "$i" = "$sel" ]; then
-      box_line "> $label" "${BYEL}${B}>${R} ${REV}${BWHT}${label}${R}"
+      box_line "> $label" "${BYEL}${B}>${R} ${BWHT}${B}${label}${R}"
     else
       box_line "  $label" "  ${WHT}${label}${R}"
     fi
