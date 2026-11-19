@@ -20,9 +20,11 @@
 # Without a terminal (CI, a tool running it) it asks nothing either.
 set -eu
 
-INSTALLER_VERSION="1.1.0"
+INSTALLER_VERSION="1.2.0"
 REGISTRY="git.teletypegames.org/build/warp-engine-local"
 CONTAINER="warp-engine-local"
+NETWORK="warp-local"
+SOCKET="/var/run/docker.sock"
 LABEL="org.teletypegames.warp-engine.local=1"
 DEFAULT_PORT=7470
 DEFAULT_SYNC_TARGET="https://orbit.teletypegames.org"
@@ -264,10 +266,20 @@ if [ "$action" = "uninstall" ]; then
   else
     status_line "no container" SKIP
   fi
-  for c in $(docker ps -aq --filter "label=$LABEL"); do docker rm -f "$c" >/dev/null; done
+  components=$(docker ps -aq --filter "label=$LABEL")
+  if [ -n "$components" ]; then
+    for c in $components; do docker rm -f "$c" >/dev/null; done
+    status_line "git server and CI removed" OK
+  fi
   if [ "$purge" = 1 ]; then
     rm -rf "$data_dir"
     status_line "data folder removed" OK
+    volumes=$(docker volume ls -q --filter "label=$LABEL")
+    if [ -n "$volumes" ]; then
+      for v in $volumes; do docker volume rm "$v" >/dev/null; done
+      status_line "git server and CI data removed" OK
+    fi
+    docker network rm "$NETWORK" >/dev/null 2>&1 && status_line "network $NETWORK removed" OK
   else
     box_line "the data stays in $data_dir (--purge removes it)"
   fi
@@ -369,8 +381,13 @@ fi
 
 admin_flag=0
 [ "$admin" = on ] && admin_flag=1
+docker network inspect "$NETWORK" >/dev/null 2>&1 \
+  || docker network create --label "$LABEL" "$NETWORK" >/dev/null \
+  || fail "the $NETWORK network could not be made"
+status_line "network $NETWORK" OK
+
 docker run -d --name "$CONTAINER" --restart unless-stopped \
-  --label "$LABEL" \
+  --label "$LABEL" --network "$NETWORK" --network-alias "$CONTAINER" -v "$SOCKET:$SOCKET" \
   -e PORT="$port" -e WARP_SYNC_TARGET="$sync_target" -e WARP_ADMIN="$admin_flag" \
   -p "127.0.0.1:$port:$port" -v "$data_dir:/data" "$image" >/dev/null \
   || fail "the container did not start"
@@ -459,6 +476,8 @@ if [ "$admin" = on ] && [ -f "$data_dir/admin.json" ]; then
 else
   box_line "admin ............ off (--admin on turns it on)"
 fi
+box_line "local CI ......... git server + Woodpecker, started from the"
+box_line "                   Toolbox when a project wants them (127.0.0.1:$((port + 1)))"
 box_line ""
 box_line "Open VS Code: the WarpEngine Toolbox finds this engine" "${BGRN}Open VS Code:${R} the WarpEngine Toolbox finds this engine"
 box_line "by itself. Run this again any time to change the answers."

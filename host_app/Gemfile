@@ -7,7 +7,7 @@ gem "solid_queue", "~> 1.2"
 
 if ENV["WARP_ENGINE_PATH"].to_s.empty?
   source "https://git.teletypegames.org/api/packages/engines/rubygems" do
-    gem "warp_engine", ENV.fetch("WARP_ENGINE_VERSION", "~> 5.3")
+    gem "warp_engine", ENV.fetch("WARP_ENGINE_VERSION", "~> 5.4")
   end
 else
   gem "warp_engine", path: ENV["WARP_ENGINE_PATH"]

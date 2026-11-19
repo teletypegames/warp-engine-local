@@ -63,6 +63,21 @@ What answers on the port:
 - `/api/admin/v1` — the Admin API and its MCP endpoint (`Authorization: Bearer <local-token>`)
 - `/admin` — the admin web UI, when it is on
 
+### The local CI
+
+The engine runs with the Docker socket (`/var/run/docker.sock`) and on the `warp-local` network,
+so it can start a git server and a CI beside itself when a project wants them (the Toolbox's
+**Set Up Local CI**, or the Admin API's `local_components`):
+
+| | |
+| --- | --- |
+| `warp-local-gitea` | Gitea on `127.0.0.1:<port + 1>` (7471); your pushes go there (the `warp` remote) |
+| `warp-local-woodpecker`, `warp-local-woodpecker-agent` | Woodpecker, reachable only on the network; it runs the pipelines on your Docker |
+
+Everything is made with generated passwords, nobody signs in; the data lives in the
+`warp-local-gitea-data` and `warp-local-woodpecker-data` volumes. `--uninstall` removes these
+containers too, `--purge` their volumes and the network as well.
+
 Inside the container: `docker exec warp-engine-local bin/warp-engine token` prints the token
 (`--reset` issues a new one), `bin/warp-engine admin` the admin sign-in.
 
@@ -97,6 +112,7 @@ checks the installers (shellcheck, the two versions agree, the tag matches).
 
 | Local | Engine | |
 | --- | --- | --- |
+| 1.2.0 | `warp_engine ~> 5.4` | the local CI: the Docker socket and the `warp-local` network, the full pipeline set |
 | 1.1.0 | `warp_engine ~> 5.3` | per-peer channels, pairing with a remote engine, images go with the releases |
 | 1.0.1 | `warp_engine ~> 5.2` | the image is pushed by hand, `bin/push-image` |
 | 1.0.0 | `warp_engine ~> 5.2` | first release |

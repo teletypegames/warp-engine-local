@@ -2,6 +2,9 @@ REGISTRY = ENV.fetch("WARP_REGISTRY", "git.teletypegames.org/build")
 TOOLING_HOST = ENV.fetch("WARP_TOOLING_HOST", "https://git.teletypegames.org")
 IMAGES = ENV.fetch("WARP_IMAGES", "2026.11.18")
 
+TOOLS_IMAGE = "#{REGISTRY}/ci-tools@sha256:8bb7d77188d3d48ac8c2b1aeea3476f39f41f270e90bdc64ba7b4a35e8037519".freeze
+COMMODORE_PLAYER = "#{REGISTRY}/commodore-player:#{IMAGES}".freeze
+
 BUILDERS = {
   godot:      "#{REGISTRY}/godot-builder:#{IMAGES}",
   phaser:     "#{REGISTRY}/phaser-builder:#{IMAGES}",
@@ -13,6 +16,12 @@ BUILDERS = {
   tic80:      "#{REGISTRY}/tic80pro:#{IMAGES}",
   dos:        "#{REGISTRY}/dos-builder:#{IMAGES}",
   electron:   "#{REGISTRY}/electron-builder:#{IMAGES}"
+}.freeze
+
+WEB_SHELLS = {
+  phaser:     "#{TOOLING_HOST}/build/phaser-tools/raw/branch/master/web/index.html",
+  bevy:       "#{TOOLING_HOST}/tools/bevy-tools/raw/branch/master/web/index.html",
+  ebitengine: "#{TOOLING_HOST}/tools/ebitengine-tools/raw/branch/master/web/index.html"
 }.freeze
 
 TOOLING = {
@@ -39,8 +48,19 @@ Rails.application.config.to_prepare do
     application_tokens from: :database, owner: "Owner"
     image_class "Image"
     ci :woodpecker do
-      update_server "http://localhost:#{WarpLocal.port}"
-      BUILDERS.each { |platform, image| platform platform, builder: image }
+      update_server "http://warp-engine-local:#{WarpLocal.port}"
+      tools         TOOLS_IMAGE
+
+      platform :godot,      builder: BUILDERS[:godot]
+      platform :phaser,     builder: BUILDERS[:phaser],     web_shell: WEB_SHELLS[:phaser]
+      platform :love,       builder: BUILDERS[:love],       bundle_id_prefix: ENV.fetch("BUNDLE_ID_PREFIX", "org.example")
+      platform :bevy,       builder: BUILDERS[:bevy],       web_shell: WEB_SHELLS[:bevy]
+      platform :c64,        builder: BUILDERS[:c64],        exporter: COMMODORE_PLAYER
+      platform :plus4,      builder: BUILDERS[:plus4],      exporter: COMMODORE_PLAYER
+      platform :ebitengine, builder: BUILDERS[:ebitengine], web_shell: WEB_SHELLS[:ebitengine]
+      platform :tic80,      builder: BUILDERS[:tic80]
+      platform :dos,        builder: BUILDERS[:dos],        forge_release: true
+      platform :electron,   builder: BUILDERS[:electron]
     end
 
     runtime :emulatorjs, version: "4.2.3"
@@ -51,6 +71,12 @@ Rails.application.config.to_prepare do
 
     admin_api do
       enable
+    end
+
+    local_components do
+      enable
+      engine_url "http://warp-engine-local:#{WarpLocal.port}"
+      forge_port WarpLocal.port + 1
     end
 
     sync do

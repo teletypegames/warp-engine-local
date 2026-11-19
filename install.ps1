@@ -20,9 +20,10 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$InstallerVersion = "1.1.0"
+$InstallerVersion = "1.2.0"
 $Registry = "git.teletypegames.org/build/warp-engine-local"
 $Container = "warp-engine-local"
+$Network = "warp-local"
 $Label = "org.teletypegames.warp-engine.local=1"
 $DefaultPort = 7470
 $DefaultSyncTarget = "https://orbit.teletypegames.org"
@@ -98,7 +99,11 @@ if ($Uninstall) {
   Banner; BoxTop "UNINSTALL"
   if (ContainerExists) { docker rm -f $Container | Out-Null; StatusLine "container removed" OK } else { StatusLine "no container" SKIP }
   docker ps -aq --filter "label=$Label" | ForEach-Object { docker rm -f $_ | Out-Null }
-  if ($Purge) { Remove-Item -Recurse -Force $Data -ErrorAction SilentlyContinue; StatusLine "data folder removed" OK }
+  if ($Purge) {
+    Remove-Item -Recurse -Force $Data -ErrorAction SilentlyContinue; StatusLine "data folder removed" OK
+    docker volume ls -q --filter "label=$Label" | ForEach-Object { docker volume rm $_ | Out-Null }
+    docker network rm $Network 2>$null | Out-Null
+  }
   else { BoxLine "the data stays in $Data (-Purge removes it)" }
   BoxBottom; exit 0
 }
@@ -160,7 +165,11 @@ docker pull -q $Image | Out-Null
 if ($LASTEXITCODE -ne 0) { Fail "the image could not be pulled: $Image" }
 StatusLine "image pulled" OK
 if (ContainerExists) { docker rm -f $Container | Out-Null; StatusLine "old container replaced" OK }
-docker run -d --name $Container --restart unless-stopped --label $Label `
+docker network inspect $Network 2>$null | Out-Null
+if ($LASTEXITCODE -ne 0) { docker network create --label $Label $Network | Out-Null }
+StatusLine "network $Network" OK
+docker run -d --name $Container --restart unless-stopped --label $Label --network $Network --network-alias $Container `
+  -v "/var/run/docker.sock:/var/run/docker.sock" `
   -e "PORT=$Port" -e "WARP_SYNC_TARGET=$SyncTarget" -e "WARP_ADMIN=$adminFlag" `
   -p "127.0.0.1:${Port}:$Port" -v "${Data}:/data" $Image | Out-Null
 if ($LASTEXITCODE -ne 0) { Fail "the container did not start" }
@@ -209,6 +218,9 @@ if ($Admin -eq "on" -and (Test-Path $adminFile)) {
   BoxLine "admin ............ $url/admin" "admin ............ $Wh$url/admin$R"
   BoxLine "                   $($a.email) / $($a.password)"
 } else { BoxLine "admin ............ off (-Admin on turns it on)" }
+BoxLine ""
+BoxLine "local CI ......... git server + Woodpecker, started from the"
+BoxLine "                   Toolbox when a project wants them (127.0.0.1:$($Port + 1))"
 BoxLine ""
 BoxLine "Open VS Code: the WarpEngine Toolbox finds this engine" "${Gr}Open VS Code:$R the WarpEngine Toolbox finds this engine"
 BoxLine "by itself. Run this again any time to change the answers."
