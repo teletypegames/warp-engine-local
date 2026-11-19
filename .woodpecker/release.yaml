@@ -1,6 +1,5 @@
-# WarpEngine Local: the installers are checked on every push; a vX.Y.Z tag builds the image for
-# amd64 and arm64 and pushes it to git.teletypegames.org/build/warp-engine-local (X.Y.Z, X.Y, X, latest).
-# The installers on master pin INSTALLER_VERSION, so bump it together with the tag.
+# WarpEngine Local: the installers are checked on every push and tag. The image is built and pushed
+# by hand (bin/push-image); the installers on master pin INSTALLER_VERSION, so bump it with the tag.
 when:
   - event: push
     branch: master
@@ -12,7 +11,7 @@ steps:
   shellcheck:
     image: koalaman/shellcheck-alpine:v0.10.0
     commands:
-      - shellcheck -s sh install.sh
+      - shellcheck -s sh install.sh bin/push-image
 
   installer-version:
     image: alpine:3.22
@@ -21,16 +20,3 @@ steps:
       - PS="$(sed -n 's/^\$InstallerVersion = "\(.*\)"/\1/p' install.ps1)"
       - test "$SH" = "$PS" || { echo "install.sh $SH and install.ps1 $PS differ"; exit 1; }
       - if [ -n "$CI_COMMIT_TAG" ]; then test "v$SH" = "$CI_COMMIT_TAG" || { echo "tag $CI_COMMIT_TAG, installers $SH"; exit 1; }; fi
-
-  image:
-    image: woodpeckerci/plugin-docker-buildx:5
-    settings:
-      registry: git.teletypegames.org
-      repo: git.teletypegames.org/build/warp-engine-local
-      platforms: linux/amd64,linux/arm64
-      auto_tag: true
-      username: ci
-      password:
-        from_secret: gitea_token
-    when:
-      - event: tag

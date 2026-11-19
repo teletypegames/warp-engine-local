@@ -83,13 +83,22 @@ sh install.sh --image warp-engine-local:dev
 
 ## Releasing
 
-Bump `INSTALLER_VERSION` in `install.sh` and `install.ps1`, commit, tag `vX.Y.Z`: the pipeline
-builds the image for amd64 and arm64 and pushes `X.Y.Z`, `X.Y`, `X` and `latest`. The
-installers on `master` pull the version they name.
+Bump `INSTALLER_VERSION` in `install.sh` and `install.ps1`, push the image by hand, then commit,
+tag `vX.Y.Z` and push:
 
-| Local | Engine |
-| --- | --- |
-| 1.0.0 | `warp_engine ~> 5.2` |
+```sh
+docker login git.teletypegames.org
+BUILDER=<a buildx builder for amd64 and arm64> bin/push-image
+```
+
+`bin/push-image` builds for amd64 and arm64 and pushes `X.Y.Z`, `X.Y`, `X` and `latest`. Push
+the image before `master`: the installers there pull the version they name. The pipeline only
+checks the installers (shellcheck, the two versions agree, the tag matches).
+
+| Local | Engine | |
+| --- | --- | --- |
+| 1.0.1 | `warp_engine ~> 5.2` | the image is pushed by hand, `bin/push-image` |
+| 1.0.0 | `warp_engine ~> 5.2` | first release |
 
 ## License
 
