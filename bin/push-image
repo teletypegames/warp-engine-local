@@ -8,7 +8,7 @@ VERSION="$(sed -n 's/^INSTALLER_VERSION="\(.*\)"/\1/p' install.sh)"
 REPO="${REPO:-git.teletypegames.org/build/warp-engine-local}"
 MINOR="${VERSION%.*}"
 MAJOR="${VERSION%%.*}"
-set -- --platform linux/amd64,linux/arm64 \
+set -- --no-cache --platform linux/amd64,linux/arm64 \
   -t "$REPO:$VERSION" -t "$REPO:$MINOR" -t "$REPO:$MAJOR" -t "$REPO:latest" --push .
 if [ -n "${BUILDER:-}" ]; then set -- --builder "$BUILDER" "$@"; fi
 echo "pushing $REPO:$VERSION ($MINOR, $MAJOR, latest)"
