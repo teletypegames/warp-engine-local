@@ -22,7 +22,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$InstallerVersion = "1.4.1"
+$InstallerVersion = "1.5.0"
 $Registry = "git.teletypegames.org/build/warp-engine-local"
 $Container = "warp-engine-local"
 $Network = "warp-engine-local"

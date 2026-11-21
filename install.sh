@@ -26,7 +26,7 @@
 # Without a terminal (CI, a tool running it) it asks nothing either.
 set -eu
 
-INSTALLER_VERSION="1.4.1"
+INSTALLER_VERSION="1.5.0"
 REGISTRY="git.teletypegames.org/build/warp-engine-local"
 CONTAINER="warp-engine-local"
 NETWORK="warp-engine-local"

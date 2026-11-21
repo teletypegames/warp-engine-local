@@ -120,6 +120,7 @@ checks the installers (shellcheck, the two versions agree, the tag matches).
 
 | Local | Engine | |
 | --- | --- | --- |
+| 1.5.0 | `warp_engine ~> 5.5` (5.6.0) | the engine's forks: source links, `fork_of_*` metadata, WECP `api: 3` |
 | 1.4.1 | `warp_engine ~> 5.5` (5.5.3) | the menu marks the chosen line with the arrow only, no background |
 | 1.4.0 | `warp_engine ~> 5.5` (5.5.3) | menus in the installer; admin, admin sign-in bypass and local CI on by default; `warp-engine-local-*` component names; `--purge` removes the images too |
 | 1.3.0 | `warp_engine ~> 5.5` | the installer asks about the local CI (`--ci`), no sync target unless you name one |
