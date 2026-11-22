@@ -34,7 +34,7 @@ TOOLING = {
   bevy:       { template: "build/bevy-tools",       demo: "demos/bevy-demo" },
   phaser:     { template: "build/phaser-tools",     demo: "demos/phaser-demo" },
   dos:        { template: "build/dos-tools" },
-  electron:   { template: "build/electron-tools",   demo: "stores/warp-engine-client" }
+  electron:   { template: "build/electron-tools",   demo: "stores/we-desktop" }
 }.freeze
 
 Rails.application.config.to_prepare do
