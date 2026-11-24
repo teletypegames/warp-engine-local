@@ -120,6 +120,7 @@ checks the installers (shellcheck, the two versions agree, the tag matches).
 
 | Local | Engine | |
 | --- | --- | --- |
+| 1.6.0 | `warp_engine ~> 5.5` (5.10.0) | every builtin platform, `golang`, `batocera` and `retroarch` too, on image set `2026.11.24`; the platforms build, pack and check the same way |
 | 1.5.0 | `warp_engine ~> 5.5` (5.6.0) | the engine's forks: source links, `fork_of_*` metadata, WECP `api: 3` |
 | 1.4.1 | `warp_engine ~> 5.5` (5.5.3) | the menu marks the chosen line with the arrow only, no background |
 | 1.4.0 | `warp_engine ~> 5.5` (5.5.3) | menus in the installer; admin, admin sign-in bypass and local CI on by default; `warp-engine-local-*` component names; `--purge` removes the images too |
