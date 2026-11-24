@@ -1,6 +1,6 @@
 REGISTRY = ENV.fetch("WARP_REGISTRY", "git.teletypegames.org/build")
 TOOLING_HOST = ENV.fetch("WARP_TOOLING_HOST", "https://git.teletypegames.org")
-IMAGES = ENV.fetch("WARP_IMAGES", "2026.11.18")
+IMAGES = ENV.fetch("WARP_IMAGES", "2026.11.24")
 
 TOOLS_IMAGE = "#{REGISTRY}/ci-tools@sha256:8bb7d77188d3d48ac8c2b1aeea3476f39f41f270e90bdc64ba7b4a35e8037519".freeze
 COMMODORE_PLAYER = "#{REGISTRY}/commodore-player:#{IMAGES}".freeze
@@ -15,13 +15,16 @@ BUILDERS = {
   ebitengine: "#{REGISTRY}/ebitengine-builder:#{IMAGES}",
   tic80:      "#{REGISTRY}/tic80pro:#{IMAGES}",
   dos:        "#{REGISTRY}/dos-builder:#{IMAGES}",
-  electron:   "#{REGISTRY}/electron-builder:#{IMAGES}"
+  electron:   "#{REGISTRY}/electron-builder:#{IMAGES}",
+  golang:     "#{REGISTRY}/golang-builder:#{IMAGES}",
+  batocera:   "#{REGISTRY}/store-engine-builder:#{IMAGES}",
+  retroarch:  "#{REGISTRY}/store-engine-builder:#{IMAGES}"
 }.freeze
 
 WEB_SHELLS = {
   phaser:     "#{TOOLING_HOST}/build/phaser-tools/raw/branch/master/web/index.html",
-  bevy:       "#{TOOLING_HOST}/tools/bevy-tools/raw/branch/master/web/index.html",
-  ebitengine: "#{TOOLING_HOST}/tools/ebitengine-tools/raw/branch/master/web/index.html"
+  bevy:       "#{TOOLING_HOST}/build/bevy-tools/raw/branch/master/web/index.html",
+  ebitengine: "#{TOOLING_HOST}/build/ebitengine-tools/raw/branch/master/web/index.html"
 }.freeze
 
 TOOLING = {
@@ -34,7 +37,8 @@ TOOLING = {
   bevy:       { template: "build/bevy-tools",       demo: "demos/bevy-demo" },
   phaser:     { template: "build/phaser-tools",     demo: "demos/phaser-demo" },
   dos:        { template: "build/dos-tools" },
-  electron:   { template: "build/electron-tools",   demo: "stores/we-desktop" }
+  electron:   { template: "build/electron-tools",   demo: "stores/we-desktop" },
+  golang:     { template: "build/golang-tools",     demo: "demos/gio-demo" }
 }.freeze
 
 Rails.application.config.to_prepare do
@@ -61,6 +65,9 @@ Rails.application.config.to_prepare do
       platform :tic80,      builder: BUILDERS[:tic80]
       platform :dos,        builder: BUILDERS[:dos],        forge_release: true
       platform :electron,   builder: BUILDERS[:electron]
+      platform :golang,     builder: BUILDERS[:golang]
+      platform :batocera,   builder: BUILDERS[:batocera]
+      platform :retroarch,  builder: BUILDERS[:retroarch]
     end
 
     runtime :emulatorjs, version: "4.2.3"
