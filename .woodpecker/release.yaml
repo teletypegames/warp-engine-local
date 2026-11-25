@@ -27,7 +27,7 @@ steps:
     image: ruby:3.3
     commands:
       - gem install --no-document rdoc -v 8.1.0
-      - cd host_app && rdoc -C app lib | tee ../coverage.txt
+      - (cd host_app && rdoc -C app lib) | tee coverage.txt
       - grep -q '100.00% documented' coverage.txt
 
   # On a tag, or a manual run of master: the RDoc of the host app as the Gitea generic package
@@ -42,7 +42,7 @@ steps:
     commands:
       - gem install --no-document rdoc -v 8.1.0
       - V="$(sed -n 's/^INSTALLER_VERSION="\(.*\)"/\1/p' install.sh)"
-      - cd host_app && rdoc -q -o ../doc --main ../README.md --title "WarpEngine Local $$V" app lib ../README.md && cd ..
+      - (cd host_app && rdoc -q -o ../doc --main ../README.md --title "WarpEngine Local $$V" app lib ../README.md)
       - |
         ruby -rjson -e 'puts JSON.generate(gem: "warp-engine-local", version: ARGV[0], commit: ARGV[1], date: Time.now.utc.strftime("%F"), coverage: 100.0)' "$$V" "$(git rev-parse HEAD)" > doc/meta.json
       - tar -czf rdoc.tar.gz -C doc .
