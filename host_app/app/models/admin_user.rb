@@ -2,6 +2,7 @@
 class AdminUser < ApplicationRecord
   devise :database_authenticatable, :rememberable, :validatable
 
+  # The attributes the admin's filters may search on (Ransack).
   def self.ransackable_attributes(_auth_object = nil)
     %w[created_at email id updated_at]
   end

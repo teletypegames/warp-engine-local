@@ -2,8 +2,10 @@
 # token file in the data folder. A token file whose token no longer works is
 # replaced.
 module LocalToken
+  # The name of the token-file tokens among the engine's application tokens.
   NAME = "Local token (token file)".freeze
 
+  # The scopes of a token-file token: update, upload and every admin scope.
   SCOPES = [ WarpEngine::ApplicationToken::UPDATE_SCOPE, WarpEngine::ApplicationToken::UPLOAD_SCOPE,
              *WarpEngine::ApplicationToken::ADMIN_SCOPES ].freeze
 

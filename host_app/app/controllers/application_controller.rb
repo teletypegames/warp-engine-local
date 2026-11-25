@@ -1,3 +1,5 @@
+# The base controller of the admin web UI (ActiveAdmin). With the bypass on
+# (WarpLocal.admin_bypass?) it signs in the LocalAdmin user by itself.
 class ApplicationController < ActionController::Base
   private
 

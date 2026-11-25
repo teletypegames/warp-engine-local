@@ -1,4 +1,9 @@
+# An image of the catalog (a screenshot or a cover), uploaded in the admin web
+# UI and kept as a file under Image.upload_path; WarpEngine::SoftwareImage
+# links it to a software. Soft-deleted records (+deleted_at+) are hidden.
 class Image < ApplicationRecord
+  # The folder the image files are stored in: +IMAGE_CONTAINER_PATH+, by
+  # default <tt>/images</tt>.
   def self.upload_path
     ENV.fetch("IMAGE_CONTAINER_PATH", "/images")
   end
@@ -7,19 +12,24 @@ class Image < ApplicationRecord
 
   default_scope { where(deleted_at: nil) }
 
+  # The uploaded file of the admin form; saving the record names it with a
+  # UUID and copies it under Image.upload_path.
   attr_accessor :file_upload
 
   before_validation :assign_upload_attributes, if: -> { file_upload.present? }
   after_commit :store_upload_file, on: [ :create, :update ], if: -> { file_upload.present? }
 
+  # The attributes the admin's filters may search on (Ransack).
   def self.ransackable_attributes(auth_object = nil)
     %w[content_type created_at deleted_at filename id original_filename updated_at]
   end
 
+  # The path of the image file on disk.
   def file_path
     File.join(self.class.upload_path, filename.to_s)
   end
 
+  # The URL the clients load the image from (Api::ImagesController).
   def url = "/api/image/#{id}"
 
   private

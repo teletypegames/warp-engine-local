@@ -2,6 +2,7 @@
 # on, with a random password written to admin.json in the data folder. With
 # the bypass on (WARP_ADMIN_BYPASS=1) nobody types it: /admin signs you in.
 module LocalAdmin
+  # The e-mail address of the admin user.
   EMAIL = "admin@local".freeze
 
   module_function

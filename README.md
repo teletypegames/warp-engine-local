@@ -104,6 +104,11 @@ sh install.sh --image warp-engine-local:dev
 `host_app/` is a small Rails app: SQLite, Solid Queue in Puma, the engine mounted at `/` with
 `profile :local`, and ActiveAdmin + Devise loaded only when `WARP_ADMIN=1`.
 
+Every class, module, constant and method of `host_app/app` and `host_app/lib` has an RDoc
+comment; CI fails below 100% (`cd host_app && rdoc -C app lib`). The reference is published
+to the wiki on every tag (or a manual run of master):
+https://wiki.teletypegames.org/rdoc/warp-engine-local/latest/
+
 ## Releasing
 
 Bump `INSTALLER_VERSION` in `install.sh` and `install.ps1`, push the image by hand, then commit,
