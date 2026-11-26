@@ -404,6 +404,11 @@ banner
 case "$port" in *[!0-9]*|"") die_usage "--port needs a number, not $port" ;; esac
 
 box_top "SYSTEM CHECK"
+# Podman is not supported, also not behind its `docker` compatibility command.
+if docker --version 2>/dev/null | grep -qi podman \
+  || { ! command -v docker >/dev/null 2>&1 && command -v podman >/dev/null 2>&1; }; then
+  fail "Podman is not supported" "Install Docker Engine or Docker Desktop instead."
+fi
 command -v docker >/dev/null 2>&1 || fail "docker was not found" "Install Docker Desktop, OrbStack or Docker Engine first."
 status_line "docker" OK
 docker info >/dev/null 2>&1 || fail "the docker daemon does not answer" "Start Docker (Desktop, OrbStack) and run this again."
