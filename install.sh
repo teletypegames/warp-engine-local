@@ -26,7 +26,7 @@
 # Without a terminal (CI, a tool running it) it asks nothing either.
 set -eu
 
-INSTALLER_VERSION="1.6.0"
+INSTALLER_VERSION="2.0.0"
 REGISTRY="git.teletypegames.org/build/warp-engine-local"
 CONTAINER="warp-engine-local"
 NETWORK="warp-engine-local"
@@ -365,9 +365,9 @@ if [ "$action" = "uninstall" ]; then
   else
     status_line "no container" SKIP
   fi
-  components=$(docker ps -aq --filter "label=$LABEL")
-  if [ -n "$components" ]; then
-    for c in $components; do docker rm -f "$c" >/dev/null; done
+  containers=$(docker ps -aq --filter "label=$LABEL")
+  if [ -n "$containers" ]; then
+    for c in $containers; do docker rm -f "$c" >/dev/null; done
     status_line "git server and CI removed" OK
   fi
   if [ "$purge" = 1 ]; then

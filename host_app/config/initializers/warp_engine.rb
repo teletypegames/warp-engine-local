@@ -63,7 +63,7 @@ Rails.application.config.to_prepare do
       platform :plus4,      builder: BUILDERS[:plus4],      exporter: COMMODORE_PLAYER
       platform :ebitengine, builder: BUILDERS[:ebitengine], web_shell: WEB_SHELLS[:ebitengine]
       platform :tic80,      builder: BUILDERS[:tic80]
-      platform :dos,        builder: BUILDERS[:dos],        forge_release: true
+      platform :dos,        builder: BUILDERS[:dos],        scm_release: true
       platform :electron,   builder: BUILDERS[:electron]
       platform :golang,     builder: BUILDERS[:golang]
       platform :batocera,   builder: BUILDERS[:batocera]
@@ -80,12 +80,12 @@ Rails.application.config.to_prepare do
       enable
     end
 
-    local_components do
+    local_providers do
       enable
       name_prefix "warp-engine-local"
       network "warp-engine-local"
       engine_url "http://warp-engine-local:#{WarpLocal.port}"
-      forge_port WarpLocal.port + 1
+      scm_port WarpLocal.port + 1
     end
 
     sync do
