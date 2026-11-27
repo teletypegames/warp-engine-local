@@ -65,7 +65,7 @@ What answers on the port:
   target, whether the admin is on; the Toolbox probes it
 - `/api/*` — the catalog (WECP), `/play` and `/file/*` — playing and downloading
 - `/build/*` — uploads and publishing (`X-Update-Secret: <local-token>`)
-- `/api/admin/v1` — the Admin API and its MCP endpoint (`Authorization: Bearer <local-token>`)
+- `/api/admin/v2` — the Admin API and its MCP endpoint (`Authorization: Bearer <local-token>`)
 - `/admin` — the admin web UI, when it is on
 
 ### The local CI
